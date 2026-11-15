@@ -3,51 +3,54 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from mlp import MLP
-from train_spiral import prepare_spiral_datasets, compute_bce_loss, compute_accuracy
+from generate_data import generate_spiral_data
 
-def run_hyperparam_experiment():
-    train_data, val_data, _ = prepare_spiral_datasets()
-    X_train, y_train = train_data
-    X_val, y_val = val_data
+def compute_accuracy(y_pred, y_true):
+    preds = (y_pred >= 0.5).astype(int)
+    return np.mean(preds == y_true.astype(int))
+
+def run_hyperparameter_experiment():
+    # 產生嚴格 noise=0.035 的雙螺旋資料
+    X_tr, y_tr = generate_spiral_data(1000, 0.035, 42)
+    X_va, y_va = generate_spiral_data(250, 0.035, 100)
     
-    # 測試兩種不同的學習率設定
-    learning_rates = [0.05, 0.2]
-    history = {}
+    epochs = 300
+    lrs = [0.05, 0.2]
     
-    for lr in learning_rates:
-        print(f"正在訓練三層 MLP (LR = {lr})...")
+    results = {}
+    eps = 1e-15
+    
+    for lr in lrs:
+        np.random.seed(42)
         model = MLP(input_dim=2, hidden_sizes=[32, 32], output_dim=1, task='classification', seed=42)
-        
-        val_accs = []
         val_losses = []
-        epochs = 300
-        batch_size = 64
-        num_samples = X_train.shape[0]
+        val_accs = []
         
         for epoch in range(epochs):
-            indices = np.arange(num_samples)
+            indices = np.arange(X_tr.shape[0])
             np.random.shuffle(indices)
-            X_shuffled = X_train[indices]
-            y_shuffled = y_train[indices]
-            
-            for start in range(0, num_samples, batch_size):
-                end = min(start + batch_size, num_samples)
-                grads = model.backward(X_shuffled[start:end], y_shuffled[start:end])
+            for start in range(0, X_tr.shape[0], 64):
+                end = min(start + 64, X_tr.shape[0])
+                grads = model.backward(X_tr[indices[start:end]], y_tr[indices[start:end]])
                 model.update(grads, lr)
                 
-            val_pred = model.forward(X_val)
-            val_losses.append(compute_bce_loss(val_pred, y_val))
-            val_accs.append(compute_accuracy(val_pred, y_val))
+            p_va = np.clip(model.forward(X_va), eps, 1-eps)
+            loss_va = -np.mean(y_va * np.log(p_va) + (1 - y_va) * np.log(1 - p_va))
+            acc_va = compute_accuracy(p_va, y_va)
             
-        history[lr] = {'loss': val_losses, 'acc': val_accs}
-
-    # 繪製對比圖
+            val_losses.append(loss_va)
+            val_accs.append(acc_va)
+            
+        results[lr] = (val_losses, val_accs)
+        
+    # 繪製 hyperparam_comparison.png
     os.makedirs('../figures', exist_ok=True)
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     
-    for lr in learning_rates:
-        axes[0].plot(history[lr]['loss'], label=f'LR = {lr}')
-        axes[1].plot(history[lr]['acc'], label=f'LR = {lr}')
+    for lr in lrs:
+        losses, accs = results[lr]
+        axes[0].plot(losses, label=f'LR = {lr}')
+        axes[1].plot(accs, label=f'LR = {lr}')
         
     axes[0].set_title('Validation Loss Comparison')
     axes[0].set_xlabel('Epoch')
@@ -64,7 +67,7 @@ def run_hyperparam_experiment():
     plt.tight_layout()
     plt.savefig('../figures/hyperparam_comparison.png', dpi=300)
     plt.close()
-    print("✅ 超參數對比圖已成功儲存至 hw01/figures/hyperparam_comparison.png")
+    print("✅ hyperparam_comparison.png 已成功重新產出！")
 
 if __name__ == "__main__":
-    run_hyperparam_experiment()
+    run_hyperparameter_experiment()
