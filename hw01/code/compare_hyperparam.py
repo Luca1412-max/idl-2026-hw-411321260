@@ -14,8 +14,9 @@ def run_hyperparameter_experiment():
     X_tr, y_tr = generate_spiral_data(1000, 0.035, 42)
     X_va, y_va = generate_spiral_data(250, 0.035, 100)
     
-    epochs = 300
-    lrs = [0.05, 0.2]
+    # 依照助教建議，拉高 epoch 與測試多組 lr
+    epochs = 1500
+    lrs = [0.1, 0.5, 1.0]
     
     results = {}
     eps = 1e-15
@@ -42,8 +43,9 @@ def run_hyperparameter_experiment():
             val_accs.append(acc_va)
             
         results[lr] = (val_losses, val_accs)
+        print(f"LR = {lr} 訓練完成！最終驗證 Accuracy: {val_accs[-1]:.4f}")
         
-    # 繪製 hyperparam_comparison.png
+    # 繪製並更新 hyperparam_comparison.png
     os.makedirs('../figures', exist_ok=True)
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     
@@ -52,13 +54,13 @@ def run_hyperparameter_experiment():
         axes[0].plot(losses, label=f'LR = {lr}')
         axes[1].plot(accs, label=f'LR = {lr}')
         
-    axes[0].set_title('Validation Loss Comparison')
+    axes[0].set_title('Validation Loss Comparison (Noise=0.035)')
     axes[0].set_xlabel('Epoch')
     axes[0].set_ylabel('BCE Loss')
     axes[0].legend()
     axes[0].grid(True, ls='--', alpha=0.5)
     
-    axes[1].set_title('Validation Accuracy Comparison')
+    axes[1].set_title('Validation Accuracy Comparison (Noise=0.035)')
     axes[1].set_xlabel('Epoch')
     axes[1].set_ylabel('Accuracy')
     axes[1].legend()
@@ -67,7 +69,7 @@ def run_hyperparameter_experiment():
     plt.tight_layout()
     plt.savefig('../figures/hyperparam_comparison.png', dpi=300)
     plt.close()
-    print("✅ hyperparam_comparison.png 已成功重新產出！")
+    print("✅ hyperparam_comparison.png 已成功使用新超參數重畫！")
 
 if __name__ == "__main__":
     run_hyperparameter_experiment()
