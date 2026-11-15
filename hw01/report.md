@@ -25,10 +25,16 @@
    - 損失函數：$L_{\text{MSE}} = \frac{1}{2m} \sum_{i=1}^m (\hat{y}_i - y_i)^2$，其中輸出為線性輸出 $\hat{y} = Z^{(L)}$。
    - 誤差訊號：$\delta^{(L)} = \frac{\partial L_{\text{MSE}}}{\partial Z^{(L)}} = \frac{1}{m}(\hat{y} - y)$。
 
-2. **二元分類任務（BCE 損失配合 Sigmoid 激活）**：
-   - 損失函數：$L_{\text{BCE}} = -\frac{1}{m} \sum_{i=1}^m [y_i \log \hat{y}_i + (1-y_i)\log(1-\hat{y}_i)]$，其中 $\hat{y} = \sigma(Z^{(L)}) = \frac{1}{1 + e^{-Z^{(L)}}}$。
-   - 透過鏈鎖律（Chain Rule），其誤差訊號可簡化為：
-     $$\delta^{(L)} = \frac{\partial L_{\text{BCE}}}{\partial Z^{(L)}} = \frac{1}{m}(\hat{y} - y)$$
+2. **二元分類任務（BCE 損失配合 Sigmoid 激活的完整鏈鎖律推導）**：
+   - 損失函數：$L_{\text{BCE}} = -\frac{1}{m} \sum_{i=1}^m [y_i \log \hat{y}_i + (1-y_i)\log(1-\hat{y}_i)]$，其中預測輸出為 $\hat{y} = \sigma(Z^{(L)}) = \frac{1}{1 + e^{-Z^{(L)}}}$。
+   - 根據微積分鏈鎖律（Chain Rule），輸出層未激活值 $Z^{(L)}$ 的誤差訊號 $\delta^{(L)}$ 可拆解為損失對預測值的偏導數與 Sigmoid 導數的相乘：
+     $$\delta^{(L)} = \frac{\partial L_{\text{BCE}}}{\partial Z^{(L)}} = \frac{\partial L_{\text{BCE}}}{\partial \hat{y}} \cdot \frac{\partial \hat{y}}{\partial Z^{(L)}}$$
+   - 首先計算損失函數 $L_{\text{BCE}}$ 對預測輸出 $\hat{y}$ 的偏導數：
+     $$\frac{\partial L_{\text{BCE}}}{\partial \hat{y}} = -\frac{1}{m} \left( \frac{y}{\hat{y}} - \frac{1-y}{1-\hat{y}} \right) = -\frac{1}{m} \left( \frac{y(1-\hat{y}) - \hat{y}(1-y)}{\hat{y}(1-\hat{y})} \right) = -\frac{1}{m} \left( \frac{y - \hat{y}}{\hat{y}(1-\hat{y})} \right) = \frac{\hat{y} - y}{m\hat{y}(1-\hat{y})}$$
+   - 接著計算 Sigmoid 激活函數對未激活值 $Z^{(L)}$ 的導數 $\sigma'(Z^{(L)})$：
+     $$\sigma'(Z^{(L)}) = \sigma(Z^{(L)})(1 - \sigma(Z^{(L)})) = \hat{y}(1-\hat{y})$$
+   - 將兩者相乘，使分母的 $\hat{y}(1-\hat{y})$ 與導數完美相消：
+     $$\delta^{(L)} = \frac{\hat{y} - y}{m\hat{y}(1-\hat{y})} \cdot \hat{y}(1-\hat{y}) = \frac{1}{m}(\hat{y} - y)$$
      *(實作需特別注意對數的數值穩定性，加上微小量 $\epsilon = 1e-15$ 避免 $\log(0)$ 發生)*。
 
 對權重與偏置的偏導數為：
@@ -62,10 +68,20 @@ $$\delta^{(l)} = \frac{\partial L}{\partial Z^{(l)}} = \left( \frac{\partial L}{
    - 輸出層 $W^{(3)} \in \mathbb{R}^{32 \times 1}, b^{(3)} \in \mathbb{R}^{1 \times 1}$：$(32 \times 1) + 1 = 33$
    - **參數總數**：$96 + 1056 + 33 = 1185$ 個參數。
 
-### 3.2 梯度檢查 (`gradient_check.py`) 結果與排查說明
-使用微小量 $h = 1e-5$ 進行數值梯度（Finite Difference）與解析梯度（Analytic Gradient）的相對誤差（$\frac{|\theta_{\text{analytic}} - \theta_{\text{numerical}}|}{\max(\epsilon, |\theta_{\text{analytic}}| + |\theta_{\text{numerical}}|)}$）比對：
-- **`[32]` 分類模型**：Layer 1 最大相對誤差約 $1.71 \times 10^{-10}$；Layer 2 最大相對誤差約 $3.02 \times 10^{-11}$。
-- **`[32, 32]` 分類與迴歸模型**：各層最大相對誤差均小於 $2.1 \times 10^{-10}$，遠低於課程規定的 $1 \times 10^{-5}$ 門檻，驗證了反向傳遞算式的絕對正確性。
+### 3.2 梯度檢查 (`gradient_check.py`) 結果與逐層驗證表
+使用微小量 $h = 1e-5$ 進行數值梯度（Finite Difference）與解析梯度（Analytic Gradient）的相對誤差（$\frac{|\theta_{\text{analytic}} - \theta_{\text{numerical}}|}{\max(\epsilon, |\theta_{\text{analytic}}| + |\theta_{\text{numerical}}|)}$）比對。各模型架構的逐層參數數量與相對誤差整理如下表：
+
+| 任務類型 | 模型架構 (隱藏層) | 網路層別 | 參數矩陣形狀 | 該層參數數量 | 數值相對誤差 (Rel Error, $h=1e-5$) |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **分類** | 2層 MLP (`[32]`) | Layer 1 (Hidden) | $(2 \times 32) + 32$ | 96 | $\approx 1.71 \times 10^{-10}$ |
+| **分類** | 2層 MLP (`[32]`) | Layer 2 (Output) | $(32 \times 1) + 1$ | 33 | $\approx 3.02 \times 10^{-11}$ |
+| **分類** | 3層 MLP (`[32, 32]`) | Layer 1 (Hidden 1) | $(2 \times 32) + 32$ | 96 | $\approx 2.04 \times 10^{-10}$ |
+| **分類** | 3層 MLP (`[32, 32]`) | Layer 2 (Hidden 2) | $(32 \times 32) + 32$ | 1056 | $\approx 2.10 \times 10^{-10}$ |
+| **分類** | 3層 MLP (`[32, 32]`) | Layer 3 (Output) | $(32 \times 1) + 1$ | 33 | $\approx 4.03 \times 10^{-11}$ |
+| **迴歸** | 3層 MLP (`[32, 32]`) | Layer 1 (Hidden 1) | $(2 \times 32) + 32$ | 96 | $\approx 1.53 \times 10^{-10}$ |
+| **迴歸** | 3層 MLP (`[32, 32]`) | Layer 2 (Hidden 2) | $(32 \times 32) + 32$ | 1056 | $\approx 1.76 \times 10^{-10}$ |
+| **迴歸** | 3層 MLP (`[32, 32]`) | Layer 3 (Output) | $(32 \times 1) + 1$ | 33 | $\approx 3.79 \times 10^{-11}$ |
+
 - **梯度異常排查方法**：若檢查時發現相對誤差大於 $1 \times 10^{-5}$，通常排查步驟為：
   1. 檢查前向傳播中是否遺漏加上偏置 $b$ 或啟動函數是否正確作用。
   2. 確認矩陣轉置方向是否正確（特別是 $\frac{\partial L}{\partial W} = A^T \delta$）。
