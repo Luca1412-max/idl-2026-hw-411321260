@@ -75,11 +75,15 @@ def plot_spiral_boundaries(model_2l, model_3l, test_data):
 if __name__ == "__main__":
     train_data, val_data, test_data = prepare_spiral_datasets()
     
-    print("正在訓練 2 層分類模型...")
-    model_2l, train_l_2, val_l_2 = train_classification_model([32], train_data, val_data, epochs=400, lr=0.1)
+    # 依照助教建議，將 epochs 提高至 1500，並使用實驗選出的最佳 lr (例如 0.5 或 1.0)
+    best_lr = 0.5  # 請根據 compare_hyperparam.py 的實驗結果調整
+    tuned_epochs = 1500
     
-    print("正在訓練 3 層分類模型...")
-    model_3l, train_l_3, val_l_3 = train_classification_model([32, 32], train_data, val_data, epochs=400, lr=0.1)
+    print(f"正在訓練 2 層分類模型 (Epochs={tuned_epochs}, LR={best_lr})...")
+    model_2l, train_l_2, val_l_2 = train_classification_model([32], train_data, val_data, epochs=tuned_epochs, lr=best_lr)
+    
+    print(f"正在訓練 3 層分類模型 (Epochs={tuned_epochs}, LR={best_lr})...")
+    model_3l, train_l_3, val_l_3 = train_classification_model([32, 32], train_data, val_data, epochs=tuned_epochs, lr=best_lr)
     
     # 測試集實際評估與輸出數字
     test_pred_2l = model_2l.forward(test_data[0])
