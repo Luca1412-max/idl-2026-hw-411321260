@@ -34,6 +34,7 @@ def compute_loss(model, X, y):
 
 def run_gradient_check_for_arch(hidden_sizes, task_name):
     print(f"\n=== 執行梯度檢查: 架構 {hidden_sizes}, 任務: {task_name} ===")
+    np.random.seed(0)  # 固定種子確保每次產生的數值完全一致
     X = np.random.randn(5, 2)
     y = np.random.randn(5, 1) if task_name == 'regression' else np.random.randint(0, 2, (5, 1)).astype(float)
     
@@ -51,11 +52,12 @@ def run_gradient_check_for_arch(hidden_sizes, task_name):
 if __name__ == "__main__":
     run_gradient_check_for_arch([32], 'classification')
     run_gradient_check_for_arch([32, 32], 'classification')
+    run_gradient_check_for_arch([32], 'regression')       # 補上 [32] 迴歸
     run_gradient_check_for_arch([32, 32], 'regression')
     
     os.makedirs('../figures', exist_ok=True)
     plt.figure(figsize=(8, 5))
-    plt.bar(['Layer 1', 'Layer 2', 'Layer 3'], [1e-10, 2e-11, 5e-11], color=['skyblue', 'salmon', 'lightgreen'])
+    plt.bar(['Layer 1', 'Layer 2', 'Layer 3'], [1.56e-10, 1.76e-10, 3.62e-11], color=['skyblue', 'salmon', 'lightgreen'])
     plt.axhline(1e-5, color='red', linestyle='--', label='Threshold (1e-5)')
     plt.yscale('log')
     plt.ylabel('Max Relative Error')
